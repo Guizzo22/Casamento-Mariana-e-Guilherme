@@ -357,30 +357,8 @@
 
   /* ── LISTS ── */
   #listas { background: var(--creme); }
-  .lists-tabs {
-    display: flex;
-    max-width: 540px;
-    margin: 0 auto 3rem;
-    border: 1.5px solid var(--verde);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-  .tab-btn {
-    flex: 1;
-    padding: 0.9rem 1rem;
-    border: none;
-    background: transparent;
-    font-family: 'Jost', sans-serif;
-    font-size: 0.68rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    cursor: pointer;
-    color: var(--verde);
-    transition: all 0.25s;
-  }
-  .tab-btn.active { background: var(--verde); color: var(--creme); }
-  .list-panel { display: none; }
-  .list-panel.active { display: block; }
+  .list-panel { display: block; margin-bottom: 3.5rem; }
+  .list-panel:last-child { margin-bottom: 0; }
 
   /* CB — link only */
   .cb-wrapper { max-width: 640px; margin: 0 auto; }
@@ -832,26 +810,7 @@
   <h2 class="section-title">Lista de <em>Presentes</em></h2>
   <p class="section-lead">Escolha como prefere nos presentear. Cada gesto faz parte da construção do nosso novo lar.</p>
 
-  <div class="lists-tabs">
-    <button class="tab-btn active" onclick="showTab('cb',this)">🏪 Lista Casas Bahia</button>
-    <button class="tab-btn" onclick="showTab('pix',this)">💛 Lista Ctrl+S</button>
-  </div>
-
-  <!-- CASAS BAHIA -->
-  <div class="list-panel active" id="tab-cb">
-    <div class="cb-wrapper">
-      <div class="cb-top">
-        <h3>🏪 Lista Casas Bahia</h3>
-        <p>Acesse nossa lista diretamente no site da Casas Bahia. Você escolhe o item e ele chega com garantia e nota fiscal.</p>
-      </div>
-      <div class="cb-body">
-        <p>Nossa lista está cadastrada na <strong>Casas Bahia</strong>. Clique abaixo para acessar o site e encontrar os itens que escolhemos com carinho para o nosso lar.</p>
-        <p>No site, busque por <strong>"Lista de Casamento"</strong> e procure pelo nome <strong>Mariana e Guilherme</strong>.</p>
-        <a class="btn-cb-main" href="https://listas.casasbahia.com.br/casalmassa" target="_blank">🛒 Acessar Lista na Casas Bahia</a>
-       </div>
-    </div>
-  </div>
-
+  <!-- CTRL+S / PIX -->
   <!-- CTRL+S / PIX -->
   <div class="list-panel" id="tab-pix">
     <div class="pix-header">
@@ -865,6 +824,20 @@
       🔒 Clique em <strong>Presentear</strong> para ver a chave Pix. O valor vai direto para nossa conta. Coloque seu nome na descrição! 💛
     </div>
     <div class="pix-section" id="pix-section"></div>
+  </div>
+
+  <!-- CASAS BAHIA -->
+  <div class="list-panel" id="tab-cb">
+    <div class="cb-wrapper">
+      <div class="cb-top">
+        <h3>🏪 Lista Casas Bahia</h3>
+        <p>Acesse nossa lista diretamente no site da Casas Bahia. Você escolhe o item e ele chega com garantia e nota fiscal.</p>
+      </div>
+      <div class="cb-body">
+        <p>Além da nossa lista personalizada no site, também criamos uma segunda lista diretamente na <strong>Casas Bahia</strong>. Nela você pode escolher os itens pelo próprio site da loja, com entrega, garantia e nota fiscal.</p>
+        <a class="btn-cb-main" href="https://listas.casasbahia.com.br/casalmassa" target="_blank">🛒 Acessar Lista na Casas Bahia</a>
+      </div>
+    </div>
   </div>
 </section>
 
