@@ -511,7 +511,7 @@
   }
   .btn-presentear:hover { background: var(--amarelo-escuro); color: white; }
 
-  /* Estado: item já escolhido pelo convidado (via localStorage) */
+  /* Estado: item já reservado — controlado pela API (Google Sheets) */
   .pix-item-card.item-escolhido {
     opacity: 0.5;
     pointer-events: none;
@@ -1075,13 +1075,34 @@ function groupByCategory(items) {
   return map;
 }
 
+// ── CONFIGURAÇÃO DA API (Google Apps Script) ──────────────────────────────
+// Cole aqui a URL gerada após o deploy do Apps Script (casamento-api.gs).
+// Exemplo: 'https://script.google.com/macros/s/AKfycb.../exec'
+const APPS_SCRIPT_URL = 'COLE_A_URL_DO_APPS_SCRIPT_AQUI'; // ← SUBSTITUA AQUI
+// ─────────────────────────────────────────────────────────────────────────
+
+// Conjunto em memória dos índices reservados — preenchido pelo carregamento inicial
+let reservadosGlobal = new Set();
+
+// ── Busca os itens já reservados na API e renderiza a lista ───────────────
+async function inicializarLista() {
+  try {
+    const res  = await fetch(APPS_SCRIPT_URL);
+    const data = await res.json();
+    if (data.ok && Array.isArray(data.reservados)) {
+      reservadosGlobal = new Set(data.reservados);
+    }
+  } catch (e) {
+    // Se a API falhar, a lista renderiza normalmente (sem reservas marcadas)
+    console.warn('Não foi possível carregar reservas:', e);
+  }
+  renderPix();
+}
+
 function renderPix() {
   const section = document.getElementById('pix-section');
   const grouped = groupByCategory(allItems);
   document.getElementById('total-badge').textContent = allItems.length + ' itens';
-
-  // Lê do localStorage os índices que este navegador já marcou como reservado
-  const escolhidos = JSON.parse(localStorage.getItem('presentesEscolhidos') || '[]');
 
   Object.entries(grouped).forEach(([cat, items]) => {
     const wrap = document.createElement('div');
@@ -1101,16 +1122,16 @@ function renderPix() {
     const grid = document.createElement('div');
     grid.className = 'pix-items-grid';
     items.forEach(item => {
-      const foiEscolhido = escolhidos.includes(item.idx);
+      const foiReservado = reservadosGlobal.has(item.idx);
       const card = document.createElement('div');
-      card.className = 'pix-item-card' + (foiEscolhido ? ' item-escolhido' : '');
+      card.className = 'pix-item-card' + (foiReservado ? ' item-escolhido' : '');
       card.innerHTML = `
         <div class="pix-item-info">
           <div class="pix-item-name">${item.nome}</div>
           <div class="pix-item-price">R$ ${item.valor.toLocaleString('pt-BR')}</div>
         </div>
-        ${foiEscolhido
-          ? `<button class="btn-presentear btn-escolhido" disabled>✅ Esse item já foi escolhido</button>`
+        ${foiReservado
+          ? `<button class="btn-presentear btn-escolhido" disabled>✅ Já foi escolhido</button>`
           : `<button class="btn-presentear" onclick="openModal(${item.idx})">💛 Presentear</button>`
         }`;
       grid.appendChild(card);
@@ -1151,41 +1172,49 @@ function copiarPix() {
   });
 }
 
-// ── CONFIRMAÇÃO VIA WHATSAPP + ESTADO LOCAL ───────────────────────────────
+// ── CONFIRMAÇÃO VIA WHATSAPP + GRAVAÇÃO NA API ────────────────────────────
 // ATENÇÃO: Substitua o número abaixo pelo seu número real (somente dígitos,
 // incluindo código do país 55 e DDD). Exemplo: "5561999990000"
-const WHATSAPP_NUMBER = "55SEUNUMEROAQUI"; // ← SUBSTITUA PELO SEU NÚMERO AQUI
+const WHATSAPP_NUMBER = "5561998862675"; // ← SUBSTITUA PELO SEU NÚMERO AQUI
 
-function confirmarPixWhatsApp() {
-  // Captura o nome e o índice do presente atualmente aberto no modal
+async function confirmarPixWhatsApp() {
   const nomePresente = document.getElementById('modal-item-name').textContent;
   const idx = modalItemIdx;
 
-  // ── 1. Salva no localStorage do navegador ────────────────────────────────
-  const escolhidos = JSON.parse(localStorage.getItem('presentesEscolhidos') || '[]');
-  if (!escolhidos.includes(idx)) {
-    escolhidos.push(idx);
-    localStorage.setItem('presentesEscolhidos', JSON.stringify(escolhidos));
+  // Desabilita o botão imediatamente para evitar cliques duplos
+  const btnWpp = document.querySelector('.btn-whatsapp-pix');
+  if (btnWpp) { btnWpp.disabled = true; btnWpp.textContent = 'Enviando…'; }
+
+  // ── 1. Grava a reserva na API (Google Sheets) ────────────────────────────
+  try {
+    await fetch(APPS_SCRIPT_URL, {
+      method : 'POST',
+      headers: { 'Content-Type': 'text/plain' }, // Apps Script exige text/plain no CORS simples
+      body   : JSON.stringify({ idx, nome: nomePresente }),
+    });
+  } catch (e) {
+    console.warn('Falha ao gravar reserva na API:', e);
+    // Continua mesmo se a API falhar — o WhatsApp ainda abre
   }
 
-  // ── 2. Atualiza o card na lista sem re-renderizar tudo ───────────────────
-  // Busca o botão "Presentear" pelo seu onclick e atualiza o card pai
+  // ── 2. Atualiza o estado local em memória e o DOM imediatamente ──────────
+  reservadosGlobal.add(idx);
+
   const botoes = document.querySelectorAll('.btn-presentear:not(.btn-escolhido)');
   botoes.forEach(btn => {
     if (btn.getAttribute('onclick') === `openModal(${idx})`) {
       const card = btn.closest('.pix-item-card');
       card.classList.add('item-escolhido');
-      btn.textContent = '✅ Você escolheu este';
+      btn.textContent = '✅ Já foi escolhido';
       btn.classList.add('btn-escolhido');
       btn.removeAttribute('onclick');
       btn.setAttribute('disabled', true);
     }
   });
 
-  // ── 3. Monta e abre a mensagem no WhatsApp ───────────────────────────────
+  // ── 3. Abre o WhatsApp ───────────────────────────────────────────────────
   const mensagem = `Oi! Acabei de dar o Ctrl+S no presente: ${nomePresente}. O Pix já foi enviado! 💛`;
-  const mensagemCodificada = encodeURIComponent(mensagem);
-  window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${mensagemCodificada}`, '_blank');
+  window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(mensagem)}`, '_blank');
 
   // ── 4. Fecha o modal ─────────────────────────────────────────────────────
   closeModal();
@@ -1209,7 +1238,7 @@ function confirmarPresenca() {
   document.getElementById('rsvp-msg').value = '';
 }
 
-renderPix();
+inicializarLista(); // busca reservas na API e renderiza a lista
 updateCountdown();
 setInterval(updateCountdown, 1000);
 </script>
