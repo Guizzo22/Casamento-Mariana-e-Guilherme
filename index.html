@@ -511,6 +511,19 @@
   }
   .btn-presentear:hover { background: var(--amarelo-escuro); color: white; }
 
+  /* Estado: item já escolhido pelo convidado (via localStorage) */
+  .pix-item-card.item-escolhido {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  .btn-presentear.btn-escolhido {
+    background: #d4edda;
+    color: var(--verde);
+    cursor: default;
+    letter-spacing: 0.08em;
+    pointer-events: none;
+  }
+
   /* ── MODAL ── */
   .modal-overlay {
     display: none;
@@ -622,6 +635,30 @@
   }
   .modal-mp-link:hover { background: #007bb5; }
   .modal-note { font-size: 0.73rem; color: #aaa; text-align: center; line-height: 1.6; }
+
+  /* ── BOTÃO WHATSAPP (confirmação de Pix) ── */
+  .btn-whatsapp-pix {
+    display: block;
+    width: 100%;
+    padding: 0.92rem 1rem;
+    background: #25b849;
+    color: #fff;
+    border: none;
+    border-radius: 2px;
+    font-family: 'Jost', sans-serif;
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-weight: 500;
+    text-align: center;
+    transition: background 0.2s, transform 0.15s;
+    margin-bottom: 0.9rem;
+  }
+  .btn-whatsapp-pix:hover {
+    background: #1da03d;
+    transform: translateY(-1px);
+  }
 
   /* ── RSVP ── */
   #confirmacao { background: var(--creme-escuro); }
@@ -865,6 +902,7 @@
 <div class="pix-key" id="modal-pix-key" style="display: none;">SEU_PIX@EMAIL.COM</div>        <button class="btn-copy" onclick="copiarPix()">📋 Copiar chave Pix</button>
       </div>
       <a class="modal-mp-link" id="modal-mp-link" href="#" target="_blank">💳 Pagar pelo QR code</a>
+      <button class="btn-whatsapp-pix" onclick="confirmarPixWhatsApp()">✅ Já fiz o Pix! (Avisar no WhatsApp)</button>
       <p class="modal-note">O valor vai direto para nossa conta.<br><strong>Coloque seu nome na descrição</strong> para sabermos que foi você! 💛</p>
     </div>
   </div>
@@ -1041,6 +1079,10 @@ function renderPix() {
   const section = document.getElementById('pix-section');
   const grouped = groupByCategory(allItems);
   document.getElementById('total-badge').textContent = allItems.length + ' itens';
+
+  // Lê do localStorage os índices que este navegador já marcou como reservado
+  const escolhidos = JSON.parse(localStorage.getItem('presentesEscolhidos') || '[]');
+
   Object.entries(grouped).forEach(([cat, items]) => {
     const wrap = document.createElement('div');
     const header = document.createElement('div');
@@ -1059,14 +1101,18 @@ function renderPix() {
     const grid = document.createElement('div');
     grid.className = 'pix-items-grid';
     items.forEach(item => {
+      const foiEscolhido = escolhidos.includes(item.idx);
       const card = document.createElement('div');
-      card.className = 'pix-item-card';
+      card.className = 'pix-item-card' + (foiEscolhido ? ' item-escolhido' : '');
       card.innerHTML = `
         <div class="pix-item-info">
           <div class="pix-item-name">${item.nome}</div>
           <div class="pix-item-price">R$ ${item.valor.toLocaleString('pt-BR')}</div>
         </div>
-        <button class="btn-presentear" onclick="openModal(${item.idx})">💛 Presentear</button>`;
+        ${foiEscolhido
+          ? `<button class="btn-presentear btn-escolhido" disabled>✅ Você escolheu este</button>`
+          : `<button class="btn-presentear" onclick="openModal(${item.idx})">💛 Presentear</button>`
+        }`;
       grid.appendChild(card);
     });
     wrap.appendChild(header);
@@ -1082,7 +1128,11 @@ function showTab(tab, btn) {
   btn.classList.add('active');
 }
 
+// Armazena o índice do item aberto no modal para uso pela função de WhatsApp
+let modalItemIdx = null;
+
 function openModal(idx) {
+  modalItemIdx = idx;
   const item = allItems[idx];
   document.getElementById('modal-item-name').textContent = item.nome;
   document.getElementById('modal-item-price').textContent = 'R$ ' + item.valor.toLocaleString('pt-BR');
@@ -1100,6 +1150,47 @@ function copiarPix() {
     setTimeout(() => btn.textContent = orig, 2000);
   });
 }
+
+// ── CONFIRMAÇÃO VIA WHATSAPP + ESTADO LOCAL ───────────────────────────────
+// ATENÇÃO: Substitua o número abaixo pelo seu número real (somente dígitos,
+// incluindo código do país 55 e DDD). Exemplo: "5561999990000"
+const WHATSAPP_NUMBER = "55SEUNUMEROAQUI"; // ← SUBSTITUA PELO SEU NÚMERO AQUI
+
+function confirmarPixWhatsApp() {
+  // Captura o nome e o índice do presente atualmente aberto no modal
+  const nomePresente = document.getElementById('modal-item-name').textContent;
+  const idx = modalItemIdx;
+
+  // ── 1. Salva no localStorage do navegador ────────────────────────────────
+  const escolhidos = JSON.parse(localStorage.getItem('presentesEscolhidos') || '[]');
+  if (!escolhidos.includes(idx)) {
+    escolhidos.push(idx);
+    localStorage.setItem('presentesEscolhidos', JSON.stringify(escolhidos));
+  }
+
+  // ── 2. Atualiza o card na lista sem re-renderizar tudo ───────────────────
+  // Busca o botão "Presentear" pelo seu onclick e atualiza o card pai
+  const botoes = document.querySelectorAll('.btn-presentear:not(.btn-escolhido)');
+  botoes.forEach(btn => {
+    if (btn.getAttribute('onclick') === `openModal(${idx})`) {
+      const card = btn.closest('.pix-item-card');
+      card.classList.add('item-escolhido');
+      btn.textContent = '✅ Você escolheu este';
+      btn.classList.add('btn-escolhido');
+      btn.removeAttribute('onclick');
+      btn.setAttribute('disabled', true);
+    }
+  });
+
+  // ── 3. Monta e abre a mensagem no WhatsApp ───────────────────────────────
+  const mensagem = `Oi! Acabei de dar o Ctrl+S no presente: ${nomePresente}. O Pix já foi enviado! 💛`;
+  const mensagemCodificada = encodeURIComponent(mensagem);
+  window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${mensagemCodificada}`, '_blank');
+
+  // ── 4. Fecha o modal ─────────────────────────────────────────────────────
+  closeModal();
+}
+// ─────────────────────────────────────────────────────────────────────────
 
 function updateCountdown() {
   const diff = new Date('2026-10-24T16:00:00') - new Date();
