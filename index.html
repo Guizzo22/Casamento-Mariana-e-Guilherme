@@ -1110,7 +1110,7 @@ function renderPix() {
           <div class="pix-item-price">R$ ${item.valor.toLocaleString('pt-BR')}</div>
         </div>
         ${foiEscolhido
-          ? `<button class="btn-presentear btn-escolhido" disabled>✅ Você escolheu este</button>`
+          ? `<button class="btn-presentear btn-escolhido" disabled>✅ Esse item já foi escolhido</button>`
           : `<button class="btn-presentear" onclick="openModal(${item.idx})">💛 Presentear</button>`
         }`;
       grid.appendChild(card);
