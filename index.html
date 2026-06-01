@@ -752,6 +752,124 @@
     .pix-header { flex-direction: column; text-align: center; }
     .hero-date-block .dot { display: none; }
   }
+
+  /* ── MUSIC PLAYER FLUTUANTE ─────────────────────── */
+  #music-player {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: var(--verde-musgo);
+    border: 1px solid rgba(228, 182, 149, 0.25);
+    border-radius: 50px;
+    box-shadow:
+      0 8px 32px rgba(44, 62, 45, 0.45),
+      0 2px 8px rgba(0,0,0,0.18),
+      inset 0 1px 0 rgba(255,255,255,0.06);
+    overflow: hidden;
+    max-width: 52px;
+    transition:
+      max-width 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+      border-color 0.3s ease,
+      box-shadow 0.3s ease;
+    cursor: pointer;
+  }
+
+  #music-player:hover {
+    max-width: 280px;
+    border-color: rgba(228, 182, 149, 0.5);
+    box-shadow:
+      0 12px 40px rgba(44, 62, 45, 0.55),
+      0 4px 16px rgba(0,0,0,0.22),
+      inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+
+  #music-btn {
+    flex-shrink: 0;
+    width: 52px;
+    height: 52px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--amarelo);
+    padding: 0;
+    position: relative;
+    transition: color 0.2s;
+  }
+
+  #music-btn:hover { color: #fff; }
+
+  #music-btn svg {
+    width: 18px;
+    height: 18px;
+    transition: transform 0.2s ease;
+  }
+
+  #music-btn:hover svg { transform: scale(1.15); }
+
+  /* Anel pulsante quando tocando */
+  #music-player.playing #music-btn::before {
+    content: '';
+    position: absolute;
+    inset: 6px;
+    border-radius: 50%;
+    border: 1px solid var(--amarelo);
+    opacity: 0;
+    animation: ringPulse 2.4s ease-out infinite;
+  }
+
+  @keyframes ringPulse {
+    0%   { opacity: 0.6; transform: scale(0.85); }
+    100% { opacity: 0;   transform: scale(1.45); }
+  }
+
+  #music-info {
+    display: flex;
+    align-items: center;
+    padding: 0 1rem 0 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.25s ease 0.1s;
+    white-space: nowrap;
+  }
+
+  #music-player:hover #music-info { opacity: 1; }
+
+  #music-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.9rem;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--creme);
+    letter-spacing: 0.04em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Separador vertical sutil */
+  #music-info::before {
+    content: '';
+    display: block;
+    width: 1px;
+    height: 22px;
+    background: rgba(228, 182, 149, 0.3);
+    margin-right: 1rem;
+    flex-shrink: 0;
+  }
+
+  /* Mobile: compacto, sem hover expand */
+  @media (max-width: 600px) {
+    #music-player { bottom: 1.25rem; right: 1.25rem; }
+    #music-player:hover { max-width: 52px; }
+    #music-player:hover #music-info { opacity: 0; }
+  }
+  /* ───────────────────────────────────────────────── */
 </style>
 </head>
 <body>
@@ -907,6 +1025,31 @@
     </div>
   </div>
 </div>
+
+<!-- ── MUSIC PLAYER ─────────────────────────────────── -->
+<audio id="bg-audio" loop preload="auto">
+  <!-- Substitua pelo caminho do seu arquivo de áudio, ex: "nossa-musica.mp3" -->
+  <source src="ludoviconossa.mp3" type="audio/mpeg">
+</audio>
+
+<div id="music-player" aria-label="Player de música">
+  <button id="music-btn" aria-label="Tocar ou pausar música">
+    <!-- Ícone Play -->
+    <svg id="icon-play" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="7,4 20,12 7,20" fill="currentColor"/>
+    </svg>
+    <!-- Ícone Pause (oculto por padrão) -->
+    <svg id="icon-pause" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:none">
+      <rect x="5" y="4" width="4" height="16" rx="1" fill="currentColor"/>
+      <rect x="15" y="4" width="4" height="16" rx="1" fill="currentColor"/>
+    </svg>
+  </button>
+  <div id="music-info">
+    <!-- Altere aqui o nome da música e artista -->
+    <span id="music-title">Nossa Música · Ludovico</span>
+  </div>
+</div>
+<!-- ───────────────────────────────────────────────── -->
 
 <script>
 const PIX_KEY = "a2ab9345-96b9-48d5-9906-c2bea4bafa5d";         // ← SUBSTITUA PELA SUA CHAVE PIX
@@ -1241,6 +1384,68 @@ function confirmarPresenca() {
 inicializarLista(); // busca reservas na API e renderiza a lista
 updateCountdown();
 setInterval(updateCountdown, 1000);
+
+/* ── MUSIC PLAYER ──────────────────────────────────── */
+(function () {
+  const audio     = document.getElementById('bg-audio');
+  const player    = document.getElementById('music-player');
+  const btn       = document.getElementById('music-btn');
+  const iconPlay  = document.getElementById('icon-play');
+  const iconPause = document.getElementById('icon-pause');
+
+  let autoplayUnlocked = false;
+
+  function setPlayingState(playing) {
+    iconPlay.style.display  = playing ? 'none'  : 'block';
+    iconPause.style.display = playing ? 'block' : 'none';
+    player.classList.toggle('playing', playing);
+    btn.setAttribute('aria-label', playing ? 'Pausar música' : 'Tocar música');
+  }
+
+  function tryPlay() {
+    audio.volume = 0.55;
+    audio.play()
+      .then(() => setPlayingState(true))
+      .catch(() => { /* bloqueado pelo navegador — fallback abaixo */ });
+  }
+
+  // Tenta autoplay imediato ao carregar
+  tryPlay();
+
+  // Fallback: inicia na primeira interação do usuário
+  function unlockOnInteraction() {
+    if (autoplayUnlocked) return;
+    autoplayUnlocked = true;
+    if (audio.paused) tryPlay();
+    document.removeEventListener('click',      unlockOnInteraction);
+    document.removeEventListener('scroll',     unlockOnInteraction);
+    document.removeEventListener('keydown',    unlockOnInteraction);
+    document.removeEventListener('touchstart', unlockOnInteraction);
+  }
+
+  document.addEventListener('click',      unlockOnInteraction, { passive: true });
+  document.addEventListener('scroll',     unlockOnInteraction, { passive: true });
+  document.addEventListener('keydown',    unlockOnInteraction, { passive: true });
+  document.addEventListener('touchstart', unlockOnInteraction, { passive: true });
+
+  // Botão: alterna play/pause
+  btn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    autoplayUnlocked = true;
+    if (audio.paused) {
+      tryPlay();
+    } else {
+      audio.pause();
+      setPlayingState(false);
+    }
+  });
+
+  // Sincroniza estado com eventos nativos do áudio
+  audio.addEventListener('play',  () => setPlayingState(true));
+  audio.addEventListener('pause', () => setPlayingState(false));
+  audio.addEventListener('ended', () => setPlayingState(false));
+})();
+/* ───────────────────────────────────────────────── */
 </script>
 </body>
 </html>
